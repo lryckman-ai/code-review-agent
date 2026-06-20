@@ -1,0 +1,26 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Logs — may contain review output of real code
+logs/*.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+.pytest_cache/
+tests/.pytest_cache/
+
+# OS
+.DS_Store

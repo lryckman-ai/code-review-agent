@@ -1,0 +1,14 @@
+{
+  "_note": "TRUE NEGATIVE — agent should find no HIGH or CRITICAL issues",
+  "must_find": [],
+  "must_not_flag": [
+    "bcrypt", "secrets.token_urlsafe", "hmac.compare_digest",
+    "jwt.decode", "os.environ"
+  ],
+  "max_allowed_severity": "LOW",
+  "reviewers_must_include": [],
+  "remediation": {
+    "must_include_keywords": [],
+    "code_must_parse": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "must_find": [
+    {
+      "id": "sqli-001",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["sql injection", "f-string", "username"],
+      "location_hint": "get_user_by_name"
+    },
+    {
+      "id": "sqli-002",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["sql injection", "concatenation", "user_id"],
+      "location_hint": "get_user_posts"
+    },
+    {
+      "id": "sqli-003",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["sql injection", "search_term", "role_filter"],
+      "location_hint": "search_users"
+    }
+  ],
+  "must_not_flag": ["fetchone", "fetchall", "sqlite3.connect"],
+  "reviewers_must_include": ["security_reviewer"],
+  "remediation": {
+    "must_include_keywords": ["parameterized", "?", "cursor.execute"],
+    "must_not_contain_keywords": ["f-string", "f\"", "f'", "+ str("],
+    "code_must_parse": true
+  }
+}

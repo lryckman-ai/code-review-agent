@@ -1,0 +1,31 @@
+{
+  "must_find": [
+    {
+      "id": "perf-004",
+      "category": "algorithm",
+      "severity": "HIGH",
+      "description_keywords": ["o(n", "nested loop", "quadratic", "set"],
+      "location_hint": "find_duplicates"
+    },
+    {
+      "id": "perf-005",
+      "category": "algorithm",
+      "severity": "MEDIUM",
+      "description_keywords": ["tokenization", "recomputed", "loop", "pairwise"],
+      "location_hint": "pairwise_jaccard"
+    },
+    {
+      "id": "perf-006",
+      "category": "memory",
+      "severity": "MEDIUM",
+      "description_keywords": ["unbounded", "memory", "grows", "evict"],
+      "location_hint": "EventLog"
+    }
+  ],
+  "must_not_flag": ["hmac", "jwt"],
+  "reviewers_must_include": ["performance_reviewer"],
+  "remediation": {
+    "must_include_keywords": ["set(", "Counter", "dict"],
+    "code_must_parse": true
+  }
+}

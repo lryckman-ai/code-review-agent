@@ -1,0 +1,32 @@
+{
+  "must_find": [
+    {
+      "id": "cmd-001",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["command injection", "shell=True", "filename"],
+      "location_hint": "count_lines"
+    },
+    {
+      "id": "cmd-002",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["command injection", "os.system", "input_path"],
+      "location_hint": "convert_image"
+    },
+    {
+      "id": "cmd-003",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["command injection", "shell=True", "log_file"],
+      "location_hint": "tail_logs"
+    }
+  ],
+  "must_not_flag": ["capture_output", "text=True"],
+  "reviewers_must_include": ["security_reviewer"],
+  "remediation": {
+    "must_include_keywords": ["shell=False", "shlex", "list", "subprocess.run"],
+    "must_not_contain_keywords": ["shell=True", "os.system"],
+    "code_must_parse": true
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "must_find": [
+    {
+      "id": "dep-001",
+      "category": "dangerous_usage",
+      "severity": "HIGH",
+      "description_keywords": ["yaml.load", "unsafe", "code execution", "Loader"],
+      "location_hint": "load_config"
+    },
+    {
+      "id": "dep-002",
+      "category": "dangerous_usage",
+      "severity": "HIGH",
+      "description_keywords": ["pickle", "untrusted", "arbitrary", "deserialization"],
+      "location_hint": "load_ml_model"
+    },
+    {
+      "id": "dep-003",
+      "category": "dangerous_usage",
+      "severity": "HIGH",
+      "description_keywords": ["md5", "password", "cryptographic", "broken"],
+      "location_hint": "hash_password"
+    },
+    {
+      "id": "dep-004",
+      "category": "dangerous_usage",
+      "severity": "MEDIUM",
+      "description_keywords": ["random", "predictable", "secrets", "otp"],
+      "location_hint": "generate_otp"
+    }
+  ],
+  "must_not_flag": ["hashlib import", "yaml import"],
+  "reviewers_must_include": ["dependency_auditor"],
+  "remediation": {
+    "must_include_keywords": ["yaml.safe_load", "bcrypt", "secrets"],
+    "must_not_contain_keywords": ["yaml.load(f)", "md5", "random.randint"],
+    "code_must_parse": true
+  }
+}

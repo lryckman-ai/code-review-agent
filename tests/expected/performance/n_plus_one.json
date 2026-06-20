@@ -1,0 +1,31 @@
+{
+  "must_find": [
+    {
+      "id": "perf-001",
+      "category": "database",
+      "severity": "HIGH",
+      "description_keywords": ["n+1", "query", "loop", "orders"],
+      "location_hint": "get_users_with_orders"
+    },
+    {
+      "id": "perf-002",
+      "category": "database",
+      "severity": "HIGH",
+      "description_keywords": ["n+1", "query", "loop", "address"],
+      "location_hint": "get_users_with_orders"
+    },
+    {
+      "id": "perf-003",
+      "category": "database",
+      "severity": "HIGH",
+      "description_keywords": ["n+1", "nested", "comments", "author"],
+      "location_hint": "load_post_comments"
+    }
+  ],
+  "must_not_flag": ["fetchall", "sqlite3.connect"],
+  "reviewers_must_include": ["performance_reviewer"],
+  "remediation": {
+    "must_include_keywords": ["JOIN", "IN", "WHERE user_id IN", "batch"],
+    "code_must_parse": true
+  }
+}

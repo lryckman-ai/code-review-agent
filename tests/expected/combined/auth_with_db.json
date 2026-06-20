@@ -1,0 +1,52 @@
+{
+  "must_find": [
+    {
+      "id": "combined-sec-001",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["sql injection", "f-string", "username"],
+      "location_hint": "authenticate"
+    },
+    {
+      "id": "combined-sec-002",
+      "category": "injection",
+      "severity": "HIGH",
+      "description_keywords": ["command injection", "shell=True", "job_name"],
+      "location_hint": "run_maintenance_job"
+    },
+    {
+      "id": "combined-sec-003",
+      "category": "sensitive_data",
+      "severity": "HIGH",
+      "description_keywords": ["hardcoded", "password", "DB_URL"],
+      "location_hint": "DB_URL"
+    },
+    {
+      "id": "combined-perf-001",
+      "category": "database",
+      "severity": "HIGH",
+      "description_keywords": ["n+1", "orders", "loop"],
+      "location_hint": "get_dashboard"
+    },
+    {
+      "id": "combined-dep-001",
+      "category": "dangerous_usage",
+      "severity": "HIGH",
+      "description_keywords": ["md5", "password", "broken"],
+      "location_hint": "authenticate"
+    },
+    {
+      "id": "combined-dep-002",
+      "category": "dangerous_usage",
+      "severity": "HIGH",
+      "description_keywords": ["yaml.load", "unsafe", "Loader"],
+      "location_hint": "load_app_config"
+    }
+  ],
+  "must_not_flag": [],
+  "reviewers_must_include": ["security_reviewer", "performance_reviewer", "dependency_auditor"],
+  "remediation": {
+    "must_include_keywords": ["parameterized", "yaml.safe_load", "secrets"],
+    "code_must_parse": true
+  }
+}
