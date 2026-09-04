@@ -1,0 +1,69 @@
+{{- range .Values.reviewers }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "codereview.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ .name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ .name }}
+  template:
+    metadata:
+      labels:
+        {{- include "codereview.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ .name }}
+    spec:
+      containers:
+        - name: reviewer
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command: ["python", "serve_one.py", "--agent", {{ .agent | quote }}]
+          env:
+            # Baked into the agent card's RPC URL — must be this Service's DNS
+            # name so the supervisor's A2A calls come back to us in-cluster.
+            - name: ADVERTISE_HOST
+              value: {{ .name | quote }}
+            - name: PORT
+              value: {{ .port | quote }}
+          envFrom:
+            {{- include "codereview.backendEnvFrom" $ | nindent 12 }}
+          ports:
+            - name: a2a
+              containerPort: {{ .port }}
+          readinessProbe:
+            httpGet:
+              path: /.well-known/agent.json
+              port: {{ .port }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /.well-known/agent.json
+              port: {{ .port }}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml $.Values.resources.reviewer | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "codereview.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ .name }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ .name }}
+  ports:
+    - name: a2a
+      port: {{ .port }}
+      targetPort: {{ .port }}
+{{- end }}

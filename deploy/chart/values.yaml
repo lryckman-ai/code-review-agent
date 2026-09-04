@@ -1,0 +1,112 @@
+# ── Images ────────────────────────────────────────────────────────────────
+# Both repos live in ECR. Fill in your account id / region, or override with
+#   --set image.repository=...  --set dashboardImage.repository=...
+#
+# pullPolicy: Always, not IfNotPresent, because tag is a mutable ":latest".
+# IfNotPresent checks the NODE's local image cache by tag name only — it does
+# not compare digests against the registry. Once a node has pulled
+# "codereview-backend:latest" once, IfNotPresent will keep reusing that same
+# cached image forever, even after a new image is pushed to the same tag —
+# deleting/recreating the pod does NOT clear the node's image cache, so that
+# doesn't force a re-pull either (hit this directly in the 2026-09-04
+# session: two rounds of delete-pod both silently kept serving the old code).
+# Always re-checks the registry every time and pulls if the digest changed.
+# The "real" fix is immutable tags (git SHA) + IfNotPresent — Phase G.
+image:
+  repository: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/codereview-backend
+  tag: latest
+  pullPolicy: Always
+
+dashboardImage:
+  repository: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/codereview-dashboard
+  tag: latest
+  pullPolicy: Always
+
+# ── LLM endpoint (gx10.lan, reached over the WireGuard tunnel) ─────────────
+# This is the whole point of Phase D's tunnel. 10.100.0.2 is gx10.lan's
+# address on the WireGuard overlay; pod traffic to 10.100.0.0/24 is routed
+# through the tunnel-server instance (see PHASE_D_RUNBOOK.md Step 4).
+llm:
+  apiBase: http://10.100.0.2:8084/v1
+  chatModel: gpt-oss-20b
+  judgeModel: gpt-oss-120b
+
+shadow:
+  probability: "0.10"
+  threshold: "0.70"
+
+langsmith:
+  project: codereview-agent
+
+# ── Secrets ───────────────────────────────────────────────────────────────
+# DO NOT commit real values. Pass at install time:
+#   --set-string secrets.langsmithApiKey=lsv2_...
+#   --set-string secrets.githubToken=github_pat_...
+#   --set-string secrets.githubWebhookSecret=$(openssl rand -hex 32)
+# openaiApiKey is "local" — the self-hosted model ignores it but LiteLLM
+# wants something non-empty.
+secrets:
+  openaiApiKey: "local"
+  langsmithApiKey: ""
+  # PAT scoped to just githubRepo below, "Pull requests: Read and write".
+  githubToken: ""
+  # Shared secret GitHub HMAC-signs each webhook delivery with — generate
+  # with `openssl rand -hex 32` and paste the same value into the GitHub
+  # webhook's "Secret" field.
+  githubWebhookSecret: ""
+
+# "owner/repo" the webhook handler will actually act on — anything else
+# (a leaked URL, a misdirected delivery) is ignored rather than spending LLM
+# time reviewing an arbitrary repo. Not a secret, just an allowlist.
+github:
+  allowedRepo: "lryckman-ai/code-review-agent"
+
+# ── The three A2A reviewers ───────────────────────────────────────────────
+# name      -> Kubernetes Service name AND the ADVERTISE_HOST baked into the
+#              agent card's RPC URL (they must match, see serve_one.py).
+# envPrefix -> the {PREFIX}_HOST / {PREFIX}_PORT vars the supervisor reads
+#              (agents/supervisor.py).
+reviewers:
+  - name: security-reviewer
+    agent: security_reviewer
+    port: 8001
+    envPrefix: SECURITY
+  - name: performance-reviewer
+    agent: performance_reviewer
+    port: 8002
+    envPrefix: PERFORMANCE
+  - name: dependency-auditor
+    agent: dependency_auditor
+    port: 8003
+    envPrefix: DEPENDENCY
+
+api:
+  port: 8000
+  # SQLite lives on this volume. Single writer => api is always 1 replica with
+  # a Recreate strategy (a rolling update would deadlock on the RWO volume).
+  storage:
+    size: 1Gi
+    storageClassName: gp2   # EKS default SC; needs the aws-ebs-csi-driver addon
+
+dashboard:
+  port: 80
+
+resources:
+  reviewer:
+    requests: { cpu: 100m, memory: 300Mi }
+    limits:   { memory: 600Mi }
+  api:
+    requests: { cpu: 100m, memory: 300Mi }
+    limits:   { memory: 600Mi }
+  dashboard:
+    requests: { cpu: 10m, memory: 24Mi }
+    limits:   { memory: 64Mi }
+
+# ── Ingress (ALB via the AWS Load Balancer Controller from Phase D) ────────
+ingress:
+  enabled: true
+  scheme: internet-facing
+  # Lock the ALB to your own IP while smoke-testing; "0.0.0.0/0" opens it.
+  inboundCidrs: "0.0.0.0/0"
+  # POST /api/review blocks for the whole pipeline; the ALB default is 60s.
+  idleTimeoutSeconds: 300

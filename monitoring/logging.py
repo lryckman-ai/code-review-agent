@@ -1,15 +1,17 @@
 """
 Structured JSON-Lines logging for every review run.
 
-Each event is one JSON object on its own line in logs/reviews.jsonl,
-and also echoed to stdout via the standard logging module.
+One JSON object per line in logs/reviews.jsonl, also echoed to stdout,
+and (aside from agent_start) mirrored into logs/reviews.db.
 
 Event types:
   review_start     — a review was submitted
   agent_start      — an individual agent began processing
   agent_complete   — an individual agent finished
   review_complete  — the full pipeline finished
-  shadow_score     — async quality judge result
+  shadow_score     — async quality judge result (full breakdown)
+  gate_decision    — pass/fail distilled from shadow_score
+  cost_estimate    — token usage + real/reference cost for one run
 """
 
 import hashlib
@@ -18,6 +20,8 @@ import logging
 import time
 import uuid
 from pathlib import Path
+
+from . import db
 
 LOG_DIR = Path(__file__).parent.parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
@@ -50,9 +54,18 @@ def _emit(record: dict) -> None:
 class ReviewLogger:
     """Tracks timing and emits structured events for one review run."""
 
-    def __init__(self, run_id: str, code: str, label: str):
+    def __init__(
+        self,
+        run_id: str,
+        code: str,
+        label: str,
+        repo: str | None = None,
+        pr_number: int | None = None,
+    ):
         self.run_id = run_id
         self.label = label
+        self.repo = repo
+        self.pr_number = pr_number
         self._hash = _code_hash(code)
         self._lines = len(code.splitlines())
         self._wall_start = time.monotonic()
@@ -66,6 +79,14 @@ class ReviewLogger:
             "code_hash": self._hash,
             "code_lines": self._lines,
         })
+        db.insert_run_start(
+            run_id=self.run_id,
+            label=self.label,
+            code_hash=self._hash,
+            code_lines=self._lines,
+            repo=self.repo,
+            pr_number=self.pr_number,
+        )
 
     def log_agent_start(self, agent: str) -> None:
         self._agent_starts[agent] = time.monotonic()
@@ -77,21 +98,27 @@ class ReviewLogger:
 
     def log_agent_complete(self, agent: str, output_chars: int) -> None:
         t0 = self._agent_starts.get(agent, self._wall_start)
+        latency_ms = int((time.monotonic() - t0) * 1000)
         _emit({
             "event": "agent_complete",
             "run_id": self.run_id,
             "agent": agent,
-            "latency_ms": int((time.monotonic() - t0) * 1000),
+            "latency_ms": latency_ms,
             "output_chars": output_chars,
         })
+        db.insert_agent_run(
+            run_id=self.run_id, agent=agent, latency_ms=latency_ms, output_chars=output_chars,
+        )
 
-    def log_complete(self, shadow_queued: bool = False) -> None:
+    def log_complete(self, output: str = "", shadow_queued: bool = False) -> None:
+        total_latency_ms = int((time.monotonic() - self._wall_start) * 1000)
         _emit({
             "event": "review_complete",
             "run_id": self.run_id,
-            "total_latency_ms": int((time.monotonic() - self._wall_start) * 1000),
+            "total_latency_ms": total_latency_ms,
             "shadow_score_queued": shadow_queued,
         })
+        db.update_run_complete(run_id=self.run_id, total_latency_ms=total_latency_ms, output=output)
 
     def log_shadow_score(
         self,
@@ -100,6 +127,7 @@ class ReviewLogger:
         breakdown: dict,
         notes: str,
         key_issues: list,
+        threshold: float,
     ) -> None:
         record: dict = {
             "event": "shadow_score",
@@ -113,6 +141,26 @@ class ReviewLogger:
             record["key_issues"] = key_issues
         _emit(record)
 
+        # Distilled pass/fail event — lets metric filters key on this directly.
+        _emit({
+            "event": "gate_decision",
+            "run_id": self.run_id,
+            "gate": "shadow_score_threshold",
+            "score": round(score, 3),
+            "threshold": threshold,
+            "passed": passed,
+        })
+        db.insert_gate_decision(
+            run_id=self.run_id,
+            gate="shadow_score_threshold",
+            score=score,
+            threshold=threshold,
+            passed=passed,
+            breakdown=breakdown,
+            notes=notes,
+            key_issues=key_issues,
+        )
+
         if not passed:
             # Prominent console warning — no email
             border = "=" * 60
@@ -120,14 +168,41 @@ class ReviewLogger:
                 "\n%s\n  LOW QUALITY SCORE ALERT\n"
                 "  run_id : %s\n"
                 "  label  : %s\n"
-                "  score  : %.0f%%  (threshold 70%%)\n"
+                "  score  : %.0f%%  (threshold %.0f%%)\n"
                 "  issues : %s\n"
                 "  notes  : %s\n%s",
                 border,
                 self.run_id,
                 self.label,
                 score * 100,
+                threshold * 100,
                 "; ".join(key_issues) if key_issues else "see breakdown",
                 notes,
                 border,
             )
+
+    def log_cost_estimate(
+        self,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        real_cost_usd: float,
+        reference_model: str | None = None,
+        reference_cost_usd: float | None = None,
+    ) -> None:
+        _emit({
+            "event": "cost_estimate",
+            "run_id": self.run_id,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "real_cost_usd": round(real_cost_usd, 6),
+            "reference_model": reference_model,
+            "reference_cost_usd": round(reference_cost_usd, 6) if reference_cost_usd is not None else None,
+        })
+        db.insert_cost_estimate(
+            run_id=self.run_id,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            real_cost_usd=real_cost_usd,
+            reference_model=reference_model,
+            reference_cost_usd=reference_cost_usd,
+        )

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: codereview
+description: Multi-agent code review system — 3 A2A reviewers, an API, and a dashboard
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

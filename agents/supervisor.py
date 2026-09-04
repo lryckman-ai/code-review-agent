@@ -4,8 +4,13 @@ from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 from google.adk.tools.agent_tool import AgentTool
 from .config import get_model
 
-# A2A server locations — override via env vars if agents run on other machines
-_HOST = os.environ.get("AGENT_HOST", "localhost")
+# A2A server locations — each reviewer is its own service (own host + port),
+# since in K8s each one gets its own Service DNS name rather than sharing localhost.
+_HOSTS = {
+    "security_reviewer":    os.environ.get("SECURITY_HOST",    "localhost"),
+    "performance_reviewer": os.environ.get("PERFORMANCE_HOST", "localhost"),
+    "dependency_auditor":   os.environ.get("DEPENDENCY_HOST",  "localhost"),
+}
 _PORTS = {
     "security_reviewer":    int(os.environ.get("SECURITY_PORT",    "8001")),
     "performance_reviewer": int(os.environ.get("PERFORMANCE_PORT", "8002")),
@@ -13,7 +18,12 @@ _PORTS = {
 }
 
 def _card(name: str) -> str:
-    return f"http://{_HOST}:{_PORTS[name]}/.well-known/agent.json"
+    return f"http://{_HOSTS[name]}:{_PORTS[name]}/.well-known/agent.json"
+
+
+# Exposed so pipeline.py can wait for the same servers without re-deriving
+# host/port config from env vars a second time.
+AGENT_CARDS = {name: _card(name) for name in _HOSTS}
 
 
 # Each specialist runs as an independent A2A microservice

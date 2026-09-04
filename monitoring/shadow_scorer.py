@@ -1,15 +1,13 @@
 """
-10% shadow scoring — async, reference-free quality judge.
+Async shadow scoring — reference-free quality judge.
 
-On each production review there is a SHADOW_SCORE_PROBABILITY chance
-(default 10%) that a background task fires a Claude judge to evaluate
-the review output independently of the golden dataset.
+SHADOW_SCORE_PROBABILITY chance (default 10%) that a background task
+fires the local LLM as judge to score the review output. Below
+SHADOW_SCORE_THRESHOLD (default 70%), a warning is logged (see
+ReviewLogger.log_shadow_score).
 
-If the overall score falls below SHADOW_SCORE_THRESHOLD (default 70%)
-a warning is logged prominently (no email — see ReviewLogger.log_shadow_score).
-
-The task is fire-and-forget but main.py collects and awaits it with a
-short timeout so the process does not exit before it completes.
+Fire-and-forget, but main.py awaits it with a short timeout so the
+process doesn't exit before it completes.
 """
 
 import asyncio
@@ -127,6 +125,7 @@ async def run_shadow_score(
             breakdown=breakdown,
             notes=result.get("notes", ""),
             key_issues=result.get("key_issues", []),
+            threshold=threshold,
         )
 
     except Exception as exc:
