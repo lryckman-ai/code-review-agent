@@ -131,6 +131,12 @@ async def run_review(
 
         if event.is_final_response() and event.content:
             for part in event.content.parts:
+                # ADK tags chain-of-thought parts (from LiteLLM's reasoning_content,
+                # e.g. gpt-oss's Harmony analysis channel) with part.thought = True.
+                # Without this check they were getting concatenated straight into
+                # final_text — the raw scratchpad ended up in real GitHub PR comments.
+                if getattr(part, "thought", False):
+                    continue
                 if hasattr(part, "text") and part.text:
                     final_text += part.text
 
