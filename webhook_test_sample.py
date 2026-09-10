@@ -20,3 +20,6 @@ def find_duplicates(items: list) -> list:
 
 def load_config(raw_bytes: bytes):
     return pickle.loads(raw_bytes)
+
+
+API_KEY = "sk-test-51H8x2eKZmQvY3nRtWpL9jD4"
