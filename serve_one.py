@@ -34,6 +34,15 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
+from monitoring.tracing import setup_langsmith
+
+# Each reviewer runs in its own pod/process — pipeline.py's setup_langsmith()
+# call (which covers the api pod's supervisor/synthesis/remediation calls)
+# never executes here, so without this, this process's LLM calls have no
+# LangSmith callback registered at all. Not nested under the api pod's root
+# trace (LangSmith context doesn't cross the A2A HTTP boundary) — shows up
+# as its own separate trace per reviewer instead.
+setup_langsmith()
 
 # name -> (module path, attribute name, default port)
 AGENTS = {
