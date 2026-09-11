@@ -27,3 +27,8 @@ API_KEY = "sk-test-51H8x2eKZmQvY3nRtWpL9jD4"
 
 def build_query(table: str, user_id: str) -> str:
     return f"SELECT * FROM {table} WHERE id = '{user_id}'"
+
+
+def read_file(path: str) -> str:
+    with open("/data/" + path) as f:
+        return f.read()
