@@ -23,3 +23,7 @@ def load_config(raw_bytes: bytes):
 
 
 API_KEY = "sk-test-51H8x2eKZmQvY3nRtWpL9jD4"
+
+
+def build_query(table: str, user_id: str) -> str:
+    return f"SELECT * FROM {table} WHERE id = '{user_id}'"
