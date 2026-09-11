@@ -36,3 +36,7 @@ def read_file(path: str) -> str:
 
 def to_hex(n: int) -> str:
     return "%x" % n
+
+
+def average(nums: list) -> float:
+    return sum(nums) / len(nums)
