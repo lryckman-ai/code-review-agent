@@ -49,3 +49,7 @@ def to_int(s):
 def parse_url(url: str) -> dict:
     parts = url.split("/")
     return {"host": parts[2], "path": "/".join(parts[3:])}
+
+
+def make_token(user_id: str) -> str:
+    return str(hash(user_id))
