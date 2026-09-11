@@ -44,3 +44,8 @@ def average(nums: list) -> float:
 
 def to_int(s):
     return eval(s)
+
+
+def parse_url(url: str) -> dict:
+    parts = url.split("/")
+    return {"host": parts[2], "path": "/".join(parts[3:])}
