@@ -61,3 +61,7 @@ def log_request(req: dict) -> None:
 
 def divide(a: int, b: int) -> float:
     return a / b
+
+
+def get_env(name: str) -> str:
+    return os.environ[name]
