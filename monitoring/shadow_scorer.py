@@ -94,6 +94,14 @@ async def _call_judge(code: str, output: str) -> dict:
         ],
     )
     raw = response.choices[0].message.content.strip()
+
+    # Some server configs (e.g. gpt-oss-120b run with --reasoning-format
+    # none) don't split chain-of-thought into a separate reasoning_content
+    # field -- the raw Harmony <|channel|>analysis<|message|>...<|end|>
+    # wrapper ends up directly in content, ahead of the actual JSON. Strip
+    # through the last <|end|> marker if present before parsing.
+    raw = re.sub(r"^.*<\|end\|>", "", raw, flags=re.DOTALL).strip()
+
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
     return json.loads(raw)
