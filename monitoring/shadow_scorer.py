@@ -84,7 +84,13 @@ async def _call_judge(code: str, output: str) -> dict:
         model=f"openai/{_JUDGE_MODEL}",
         api_base=_API_BASE,
         api_key=os.environ.get("OPENAI_API_KEY", "local"),
-        max_tokens=512,
+        # 512 was too tight for a reasoning model: confirmed live that a
+        # real (non-trivial) review output made gpt-oss-120b burn the whole
+        # budget on chain-of-thought and get cut off (finish_reason=length)
+        # before ever reaching <|end|> or the actual JSON -- it needed 635
+        # tokens end-to-end for that case. Bumped with headroom for variance
+        # across differently-sized reviews.
+        max_tokens=2048,
         messages=[
             {"role": "system", "content": _JUDGE_SYSTEM},
             {"role": "user",   "content": _JUDGE_PROMPT.format(
