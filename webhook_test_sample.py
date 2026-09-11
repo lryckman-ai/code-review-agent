@@ -32,3 +32,7 @@ def build_query(table: str, user_id: str) -> str:
 def read_file(path: str) -> str:
     with open("/data/" + path) as f:
         return f.read()
+
+
+def to_hex(n: int) -> str:
+    return "%x" % n
