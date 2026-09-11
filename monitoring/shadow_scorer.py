@@ -33,12 +33,12 @@ _JUDGE_SYSTEM = (
 _JUDGE_PROMPT = """\
 Evaluate this AI code review output for production quality.
 
-CODE SUBMITTED (first 2 000 chars):
+CODE SUBMITTED (first 8 000 chars):
 ```python
 {code}
 ```
 
-REVIEW OUTPUT (first 4 000 chars):
+REVIEW OUTPUT (first 16 000 chars):
 {output}
 
 Score each dimension 0–100 based solely on what is in the output above:
@@ -88,14 +88,24 @@ async def _call_judge(code: str, output: str) -> dict:
         # real (non-trivial) review output made gpt-oss-120b burn the whole
         # budget on chain-of-thought and get cut off (finish_reason=length)
         # before ever reaching <|end|> or the actual JSON -- it needed 635
-        # tokens end-to-end for that case. Bumped with headroom for variance
-        # across differently-sized reviews.
-        max_tokens=2048,
+        # tokens end-to-end for that case. Bumped further here since the
+        # output truncation below also grew (more context to reason over).
+        max_tokens=4096,
         messages=[
             {"role": "system", "content": _JUDGE_SYSTEM},
             {"role": "user",   "content": _JUDGE_PROMPT.format(
-                code=code[:2000],
-                output=output[:4000],
+                # output[:4000] was silently truncating real review reports
+                # (routinely 10-20K chars) before the remediation-fixes and
+                # structure sections, which come last -- the judge was
+                # scoring remediation_quality/structure near-zero for
+                # content it never saw, not because those sections were
+                # actually missing. Confirmed live: a 12,271-char output
+                # had its "### Fix" section start at char 5,918, well past
+                # the old 4000-char cutoff. Both bounds are generous vs.
+                # actual review sizes and the judge model's context window
+                # (effectively unbounded per its launch config).
+                code=code[:8000],
+                output=output[:16000],
             )},
         ],
     )
