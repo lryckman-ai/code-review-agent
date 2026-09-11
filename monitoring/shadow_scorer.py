@@ -1,15 +1,13 @@
 """
-10% shadow scoring — async, reference-free quality judge.
+Async shadow scoring — reference-free quality judge.
 
-On each production review there is a SHADOW_SCORE_PROBABILITY chance
-(default 10%) that a background task fires a Claude judge to evaluate
-the review output independently of the golden dataset.
+SHADOW_SCORE_PROBABILITY chance (default 10%) that a background task
+fires the local LLM as judge to score the review output. Below
+SHADOW_SCORE_THRESHOLD (default 70%), a warning is logged (see
+ReviewLogger.log_shadow_score).
 
-If the overall score falls below SHADOW_SCORE_THRESHOLD (default 70%)
-a warning is logged prominently (no email — see ReviewLogger.log_shadow_score).
-
-The task is fire-and-forget but main.py collects and awaits it with a
-short timeout so the process does not exit before it completes.
+Fire-and-forget, but main.py awaits it with a short timeout so the
+process doesn't exit before it completes.
 """
 
 import asyncio
@@ -35,12 +33,12 @@ _JUDGE_SYSTEM = (
 _JUDGE_PROMPT = """\
 Evaluate this AI code review output for production quality.
 
-CODE SUBMITTED (first 2 000 chars):
+CODE SUBMITTED (first 8 000 chars):
 ```python
 {code}
 ```
 
-REVIEW OUTPUT (first 4 000 chars):
+REVIEW OUTPUT (first 16 000 chars):
 {output}
 
 Score each dimension 0–100 based solely on what is in the output above:
@@ -86,16 +84,40 @@ async def _call_judge(code: str, output: str) -> dict:
         model=f"openai/{_JUDGE_MODEL}",
         api_base=_API_BASE,
         api_key=os.environ.get("OPENAI_API_KEY", "local"),
-        max_tokens=512,
+        # 512 was too tight for a reasoning model: confirmed live that a
+        # real (non-trivial) review output made gpt-oss-120b burn the whole
+        # budget on chain-of-thought and get cut off (finish_reason=length)
+        # before ever reaching <|end|> or the actual JSON -- it needed 635
+        # tokens end-to-end for that case. Bumped further here since the
+        # output truncation below also grew (more context to reason over).
+        max_tokens=4096,
         messages=[
             {"role": "system", "content": _JUDGE_SYSTEM},
             {"role": "user",   "content": _JUDGE_PROMPT.format(
-                code=code[:2000],
-                output=output[:4000],
+                # output[:4000] was silently truncating real review reports
+                # (routinely 10-20K chars) before the remediation-fixes and
+                # structure sections, which come last -- the judge was
+                # scoring remediation_quality/structure near-zero for
+                # content it never saw, not because those sections were
+                # actually missing. Confirmed live: a 12,271-char output
+                # had its "### Fix" section start at char 5,918, well past
+                # the old 4000-char cutoff. Both bounds are generous vs.
+                # actual review sizes and the judge model's context window
+                # (effectively unbounded per its launch config).
+                code=code[:8000],
+                output=output[:16000],
             )},
         ],
     )
     raw = response.choices[0].message.content.strip()
+
+    # Some server configs (e.g. gpt-oss-120b run with --reasoning-format
+    # none) don't split chain-of-thought into a separate reasoning_content
+    # field -- the raw Harmony <|channel|>analysis<|message|>...<|end|>
+    # wrapper ends up directly in content, ahead of the actual JSON. Strip
+    # through the last <|end|> marker if present before parsing.
+    raw = re.sub(r"^.*<\|end\|>", "", raw, flags=re.DOTALL).strip()
+
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
     return json.loads(raw)
@@ -127,6 +149,7 @@ async def run_shadow_score(
             breakdown=breakdown,
             notes=result.get("notes", ""),
             key_issues=result.get("key_issues", []),
+            threshold=threshold,
         )
 
     except Exception as exc:

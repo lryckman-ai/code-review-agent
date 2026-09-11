@@ -1,0 +1,22 @@
+# Secrets — supplied at runtime via env vars / K8s Secret, never baked into the image
+.env
+.env.*
+!.env.example
+
+# Local dev only
+venv/
+.venv/
+logs/
+.git/
+.vscode/
+.idea/
+.pytest_cache/
+tests/.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.DS_Store
+
+# Not needed in the container
+tests/
+README.md

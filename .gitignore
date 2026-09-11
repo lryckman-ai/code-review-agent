@@ -5,6 +5,9 @@
 
 # Logs — may contain review output of real code
 logs/*.jsonl
+logs/*.db
+logs/*.db-wal
+logs/*.db-shm
 
 # Python
 __pycache__/

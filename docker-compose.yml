@@ -1,0 +1,76 @@
+# 4 containers (3 reviewers + api) on compose's default network, talking to
+# each other by service name — same pattern as K8s Service DNS names later.
+# All 4 build from the same image (see Dockerfile), only `command` differs.
+#
+# Usage:
+#   docker compose up --build
+#   curl http://localhost:8000/healthz
+#   curl -X POST http://localhost:8000/api/review \
+#     -H 'Content-Type: application/json' \
+#     -d '{"code": "print(1)", "label": "smoke.py"}'
+
+services:
+  security-reviewer:
+    build: .
+    command: ["python", "serve_one.py", "--agent", "security_reviewer"]
+    environment:
+      ADVERTISE_HOST: security-reviewer
+    env_file: .env
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8001/.well-known/agent.json', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  performance-reviewer:
+    build: .
+    command: ["python", "serve_one.py", "--agent", "performance_reviewer"]
+    environment:
+      ADVERTISE_HOST: performance-reviewer
+    env_file: .env
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8002/.well-known/agent.json', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  dependency-auditor:
+    build: .
+    command: ["python", "serve_one.py", "--agent", "dependency_auditor"]
+    environment:
+      ADVERTISE_HOST: dependency-auditor
+    env_file: .env
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8003/.well-known/agent.json', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      SECURITY_HOST: security-reviewer
+      PERFORMANCE_HOST: performance-reviewer
+      DEPENDENCY_HOST: dependency-auditor
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      security-reviewer:
+        condition: service_healthy
+      performance-reviewer:
+        condition: service_healthy
+      dependency-auditor:
+        condition: service_healthy

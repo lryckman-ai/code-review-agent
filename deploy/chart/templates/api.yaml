@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "codereview.apiService" . }}
+  labels:
+    {{- include "codereview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: 1
+  # SQLite on a ReadWriteOnce volume — never run two of these, and never let a
+  # rolling update try to (the new pod can't mount the volume while the old
+  # one holds it).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "codereview.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "{{ .Values.api.port }}"]
+          envFrom:
+            {{- include "codereview.backendEnvFrom" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /app/logs
+          resources:
+            {{- toYaml .Values.resources.api | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "codereview.fullname" . }}-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "codereview.apiService" . }}
+  labels:
+    {{- include "codereview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: {{ .Values.api.port }}
+      targetPort: {{ .Values.api.port }}

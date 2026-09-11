@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "codereview.configName" . }}
+  labels:
+    {{- include "codereview.labels" . | nindent 4 }}
+data:
+  # LLM endpoint — the tunnel IP. This is the value Phase E exists to wire in.
+  OPENAI_API_BASE: {{ .Values.llm.apiBase | quote }}
+  OPENAI_CHAT_LLM_NAME: {{ .Values.llm.chatModel | quote }}
+  OPENAI_JUDGE_MODEL: {{ .Values.llm.judgeModel | quote }}
+
+  SHADOW_SCORE_PROBABILITY: {{ .Values.shadow.probability | quote }}
+  SHADOW_SCORE_THRESHOLD: {{ .Values.shadow.threshold | quote }}
+  LANGSMITH_PROJECT: {{ .Values.langsmith.project | quote }}
+
+  GITHUB_ALLOWED_REPO: {{ .Values.github.allowedRepo | quote }}
+
+  # Supervisor -> reviewer discovery. Host == the reviewer's Service name,
+  # which also == its ADVERTISE_HOST, so the agent card's RPC URL resolves
+  # in-cluster (agents/supervisor.py + serve_one.py).
+  {{- range .Values.reviewers }}
+  {{ .envPrefix }}_HOST: {{ .name | quote }}
+  {{ .envPrefix }}_PORT: {{ .port | quote }}
+  {{- end }}

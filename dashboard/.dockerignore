@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.*
+.git
+.vscode
+.idea
+*.local
+*.tsbuildinfo
+README.md

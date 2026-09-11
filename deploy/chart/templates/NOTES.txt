@@ -1,0 +1,21 @@
+codereview {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+1. Watch everything come up:
+
+   kubectl -n {{ .Release.Namespace }} get pods -w
+
+2. Get the ALB hostname (empty for ~2-4 min while the LB is provisioned):
+
+   kubectl -n {{ .Release.Namespace }} get ingress {{ include "codereview.fullname" . }} \
+     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}{"\n"}'
+
+3. Smoke test once the hostname resolves:
+
+   ALB=$(kubectl -n {{ .Release.Namespace }} get ingress {{ include "codereview.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+   curl -fsS "http://$ALB/healthz"
+   curl -fsS -X POST "http://$ALB/api/review" -H 'Content-Type: application/json' \
+     -d '{"code": "import os\npassword = \"hunter2\"\nos.system(\"echo \" + input())", "label": "smoke.py"}'
+
+   Then open  http://$ALB/  in a browser for the dashboard.
+
+LLM endpoint in use: {{ .Values.llm.apiBase }}  (gx10.lan over the WireGuard tunnel)

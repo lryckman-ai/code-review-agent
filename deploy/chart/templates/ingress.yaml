@@ -1,0 +1,52 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "codereview.fullname" . }}
+  labels:
+    {{- include "codereview.labels" . | nindent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme }}
+    # target-type ip: ALB targets pod IPs directly (VPC CNI), no NodePort hop.
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    # One health check path for every target group this Ingress creates — both
+    # the api (api.py) and nginx (dashboard/nginx.conf) answer 200 on /healthz.
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    # A full review (supervisor + 3 reviewers + synthesis + remediation, every
+    # LLM call over the tunnel) runs well past the ALB's 60s default idle
+    # timeout. POST /api/review is synchronous, so the client connection has to
+    # stay open the whole time.
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds={{ .Values.ingress.idleTimeoutSeconds }}
+    {{- with .Values.ingress.inboundCidrs }}
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ . | quote }}
+    {{- end }}
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          # More specific paths first — the api Service handles both.
+          - path: /healthz
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "codereview.apiService" . }}
+                port:
+                  number: {{ .Values.api.port }}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "codereview.apiService" . }}
+                port:
+                  number: {{ .Values.api.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "codereview.dashboardService" . }}
+                port:
+                  number: {{ .Values.dashboard.port }}
+{{- end }}
