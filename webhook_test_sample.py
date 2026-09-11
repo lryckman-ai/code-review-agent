@@ -57,3 +57,7 @@ def make_token(user_id: str) -> str:
 
 def log_request(req: dict) -> None:
     print("request: " + str(req))
+
+
+def divide(a: int, b: int) -> float:
+    return a / b
