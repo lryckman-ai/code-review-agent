@@ -40,3 +40,7 @@ def to_hex(n: int) -> str:
 
 def average(nums: list) -> float:
     return sum(nums) / len(nums)
+
+
+def to_int(s):
+    return eval(s)
