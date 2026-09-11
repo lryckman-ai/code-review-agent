@@ -53,3 +53,7 @@ def parse_url(url: str) -> dict:
 
 def make_token(user_id: str) -> str:
     return str(hash(user_id))
+
+
+def log_request(req: dict) -> None:
+    print("request: " + str(req))
