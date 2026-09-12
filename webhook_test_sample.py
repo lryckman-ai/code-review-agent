@@ -65,3 +65,10 @@ def divide(a: int, b: int) -> float:
 
 def get_env(name: str) -> str:
     return os.environ[name]
+
+
+def concat(items: list) -> str:
+    result = ""
+    for item in items:
+        result += str(item)
+    return result
