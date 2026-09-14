@@ -76,3 +76,10 @@ def concat(items: list) -> str:
 
 def is_admin(role: str) -> bool:
     return role == "admin" or True
+
+
+def safe_div(a, b):
+    try:
+        return a / b
+    except:
+        pass
