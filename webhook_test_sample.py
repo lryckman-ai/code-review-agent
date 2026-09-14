@@ -89,3 +89,8 @@ def get_user(users, user_id):
     for u in users:
         if u["id"] == user_id:
             return u
+
+
+def set_debug(flag):
+    global DEBUG
+    DEBUG = flag
