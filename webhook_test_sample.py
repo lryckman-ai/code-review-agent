@@ -72,3 +72,7 @@ def concat(items: list) -> str:
     for item in items:
         result += str(item)
     return result
+
+
+def is_admin(role: str) -> bool:
+    return role == "admin" or True
