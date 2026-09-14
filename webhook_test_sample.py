@@ -83,3 +83,9 @@ def safe_div(a, b):
         return a / b
     except:
         pass
+
+
+def get_user(users, user_id):
+    for u in users:
+        if u["id"] == user_id:
+            return u
